@@ -28,8 +28,31 @@ class Packet {
     return concatArrayBuffers(size, id, type, body, nullTerminator);
   }
 
-  static fromNetwork(buf: Uint8Array): Packet {
-    return new Packet(1, 2, "alma");
+  static fromNetwork(response: Uint8Array, request: Packet): Packet {
+    const responsePacketIdRaw = response.slice(0, 4);
+    const responsePacketId = varnum(
+      responsePacketIdRaw,
+      { endian: "little", dataType: "int8" },
+    );
+
+    if (responsePacketId === -1) {
+      throw new Error("Wrong password!");
+    }
+
+    if (responsePacketId !== request.ID) {
+      throw new Error("IDs don't match");
+    }
+
+    const typeRaw = response.slice(4, 8);
+    const type = varnum(
+      typeRaw,
+      { endian: "little", dataType: "int8" },
+    );
+
+    const bodyRaw = response.slice(8, response.byteLength - 2);
+    const body = new TextDecoder().decode(bodyRaw);
+
+    return new Packet(responsePacketId!, type!, body);
   }
 }
 
@@ -57,56 +80,69 @@ function toLEUI32(num: number) {
   return buf;
 }
 
-const connection = await Deno.connect({
-  port: 27015,
-  hostname: "localhost",
-  transport: "tcp",
-});
+type Maybe<T> = T | null;
 
-const serverDataAuth = new Packet(
-  123,
-  PacketType.SERVERDATA_AUTH,
-  "aeYoqu2Aeh4see3",
-);
-await connection.write(serverDataAuth.toNetwork());
+class RCONServer {
+  connection: Maybe<Deno.Conn>;
+  constructor(
+    private readonly port: number,
+    private readonly hostname: string,
+    private readonly password: string,
+    private readonly transport?: "tcp",
+  ) {
+    this.connection = null;
+  }
 
-const authResponseRawSize = new Uint8Array(4);
-await connection.read(authResponseRawSize);
+  async connect() {
+    this.connection = await Deno.connect({
+      port: this.port,
+      hostname: this.hostname,
+      transport: this.transport,
+    });
 
-const authResponseSize = varnum(
-  authResponseRawSize,
-  { endian: "little", dataType: "int8" },
-);
+    await this.sendPacket(
+      new Packet(123, PacketType.SERVERDATA_AUTH, this.password),
+    );
+  }
 
-const authResponse = new Uint8Array(authResponseSize!);
+  private async sendPacket(request: Packet): Promise<Packet> {
+    if (!this.connection) {
+      throw new Error("Connection was not initialized, call .connect() first");
+    }
 
-await connection.read(authResponse);
+    this.connection.write(request.toNetwork());
 
-const responsePacketIdRaw = authResponse.slice(0, 4);
-const responsePacketId = varnum(
-  responsePacketIdRaw,
-  { endian: "little", dataType: "int8" },
-);
+    const rawSize = new Uint8Array(4);
+    await this.connection.read(rawSize);
 
-if (responsePacketId === -1) {
-  throw new Error("Wrong password!");
+    const size = varnum(
+      rawSize,
+      { endian: "little", dataType: "int8" },
+    );
+
+    const response = new Uint8Array(size!);
+    await this.connection.read(response);
+    return Packet.fromNetwork(response, request);
+  }
+
+  async execCommand(command: string): Promise<string> {
+    const response = await rconServer.sendPacket(
+      new Packet(
+        124,
+        PacketType.SERVERDATA_EXECCOMMAND,
+        command,
+      ),
+    );
+
+    return response.Body;
+  }
 }
 
-if (serverDataAuth.ID !== responsePacketId) {
-  throw new Error(
-    `:( IDs are not the same ${serverDataAuth.ID} ${responsePacketId}`,
-  );
-}
+const rconServer = new RCONServer(27015, "localhost", "aeYoqu2Aeh4see3", "tcp");
+await rconServer.connect();
 
-const typeRaw = authResponse.slice(4, 8);
-const type = varnum(
-  typeRaw,
-  { endian: "little", dataType: "int8" },
+const players = await rconServer.execCommand(
+  "/players",
 );
 
-if (type !== PacketType.SERVERDATA_AUTH_RESPONSE) {
-  throw new Error(":(");
-}
-
-const bodyRaw = authResponse.slice(8, authResponse.byteLength - 1);
-new TextDecoder().decode(bodyRaw);
+console.log(players);
