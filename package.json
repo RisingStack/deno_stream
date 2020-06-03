@@ -1,0 +1,24 @@
+{
+  "name": "nodebp_2020_05",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RisingStack/deno_stream.git"
+  },
+  "keywords": [],
+  "author": "Peter Czibik <p.czibik@gmail.com> (http://twitter.com/peteyycz)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RisingStack/deno_stream/issues"
+  },
+  "homepage": "https://github.com/RisingStack/deno_stream#readme",
+  "devDependencies": {
+    "typescript": "3.9.3",
+    "typescript-deno-plugin": "1.31.0"
+  }
+}
