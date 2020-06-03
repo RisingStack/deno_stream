@@ -14,7 +14,7 @@ class Packet {
     public ID: number,
     public Type: PacketType,
     public Body: string,
-  ) {}
+  ) { }
 
   toNetwork(): Uint8Array {
     const id = toLEUI32(this.ID);
@@ -82,7 +82,7 @@ function toLEUI32(num: number) {
 
 type Maybe<T> = T | null;
 
-class RCONServer {
+export class RCONServer {
   connection: Maybe<Deno.Conn>;
   constructor(
     private readonly port: number,
@@ -126,7 +126,7 @@ class RCONServer {
   }
 
   async execCommand(command: string): Promise<string> {
-    const response = await rconServer.sendPacket(
+    const response = await this.sendPacket(
       new Packet(
         124,
         PacketType.SERVERDATA_EXECCOMMAND,
@@ -137,12 +137,3 @@ class RCONServer {
     return response.Body;
   }
 }
-
-const rconServer = new RCONServer(27015, "localhost", "aeYoqu2Aeh4see3", "tcp");
-await rconServer.connect();
-
-const players = await rconServer.execCommand(
-  "/players",
-);
-
-console.log(players);
