@@ -88,7 +88,6 @@ export class RCONServer {
     private readonly port: number,
     private readonly hostname: string,
     private readonly password: string,
-    private readonly transport?: "tcp",
   ) {
     this.connection = null;
   }
@@ -97,7 +96,7 @@ export class RCONServer {
     this.connection = await Deno.connect({
       port: this.port,
       hostname: this.hostname,
-      transport: this.transport,
+      transport: "tcp",
     });
 
     await this.sendPacket(
